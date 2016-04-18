@@ -175,10 +175,20 @@ module VagrantPlugins
 
         # Try to include paths where sftp-server may live so
         # That we have a good chance of finding it
-        if Vagrant::Util::Platform.windows? and
-             Vagrant::Util::Platform.cygwin?
-          cygwin_root = Vagrant::Util::Platform.cygwin_windows_path('/')
-          ENV['PATH'] += ';' + cygwin_root + '\usr\sbin'
+        if Vagrant::Util::Platform.windows?
+          if Vagrant::Util::Platform.cygwin?
+            # If we are in cygin then we can programmatically determine
+            # where the sftp-server path would be
+            cygwin_root = Vagrant::Util::Platform.cygwin_windows_path('/')
+            ENV['PATH'] += ';' + cygwin_root + '\usr\sbin'
+          else
+            # If not running under cygwin, but cygwin is installed, then we
+            # we can try to guess where the cygwin paths are. No guarantees
+            ENV['PATH'] += ';C:\cygwin\usr\bin'
+            ENV['PATH'] += ';C:\cygwin\usr\sbin'
+            ENV['PATH'] += ';C:\cygwin64\usr\bin'
+            ENV['PATH'] += ';C:\cygwin64\usr\sbin'
+          end
         else
           ENV['PATH'] += ':/usr/libexec/openssh' # Linux (Red Hat Family)
           ENV['PATH'] += ':/usr/lib/openssh'     # Linux (Debian Family)
