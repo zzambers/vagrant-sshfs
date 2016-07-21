@@ -35,47 +35,63 @@ module VagrantPlugins
       # No return value.
       def enable(machine, folders, pluginopts)
 
-        # Check to see if sshfs software is in the guest
-        if machine.guest.capability?(:sshfs_installed)
-          if !machine.guest.capability(:sshfs_installed)
-            can_install = machine.guest.capability?(:sshfs_install)
-            if !can_install
-              raise VagrantPlugins::SyncedFolderSSHFS::Errors::SSHFSNotInstalledInGuest
-            end
-            machine.ui.info(I18n.t("vagrant.sshfs.actions.installing"))
-            machine.guest.capability(:sshfs_install)
-          end
-        end
+      ### Check to see if sshfs software is in the guest
+      ##if machine.guest.capability?(:sshfs_installed)
+      ##  if !machine.guest.capability(:sshfs_installed)
+      ##    can_install = machine.guest.capability?(:sshfs_install)
+      ##    if !can_install
+      ##      raise VagrantPlugins::SyncedFolderSSHFS::Errors::SSHFSNotInstalledInGuest
+      ##    end
+      ##    machine.ui.info(I18n.t("vagrant.sshfs.actions.installing"))
+      ##    machine.guest.capability(:sshfs_install)
+      ##  end
+      ##end
 
         # Iterate through the folders and mount if needed
         folders.each do |id, opts|
 
-          # If already mounted then there is nothing to do
-          if machine.guest.capability(:sshfs_is_folder_mounted, opts)
-            machine.ui.info(
-              I18n.t("vagrant.sshfs.info.already_mounted",
-                     folder: opts[:guestpath]))
-            next
+          machine.ui.info("opts are #{opts}")
+
+          if opts.has_key?(:reverse) and opts[:reverse]
+            # If already mounted then there is nothing to do
+            if machine.guest.capability(:reverse_sshfs_is_folder_mounted, opts)
+              machine.ui.info(
+                I18n.t("vagrant.sshfs.info.already_mounted",
+                       folder: opts[:guestpath]))
+              next
+            end
+            # Do the mount
+            machine.ui.info(I18n.t("vagrant.sshfs.actions.mounting"))
+            machine.guest.capability(:reverse_sshfs_mount_folder, opts)
           end
 
-          # If the synced folder entry has host information in it then
-          # assume we are doing a normal sshfs mount to a host that isn't
-          # the machine running vagrant. Rely on password/ssh keys.
-          #
-          # If not, then we are doing a slave mount and we need to
-          # make sure we can find the sftp-server and ssh execuatable
-          # files on the host.
-          if opts.has_key?(:ssh_host) and opts[:ssh_host]
-              # Check port information and find out auth info
-              check_host_port(machine, opts)
-              get_auth_info(machine, opts)
-          else
-              opts[:ssh_exe_path] = find_executable('ssh')
-              opts[:sftp_server_exe_path] = find_executable('sftp-server')
-          end
-          # Do the mount
-          machine.ui.info(I18n.t("vagrant.sshfs.actions.mounting"))
-          machine.guest.capability(:sshfs_mount_folder, opts)
+
+        ### If already mounted then there is nothing to do
+        ##if machine.guest.capability(:sshfs_is_folder_mounted, opts)
+        ##  machine.ui.info(
+        ##    I18n.t("vagrant.sshfs.info.already_mounted",
+        ##           folder: opts[:guestpath]))
+        ##  next
+        ##end
+
+##        # If the synced folder entry has host information in it then
+##        # assume we are doing a normal sshfs mount to a host that isn't
+##        # the machine running vagrant. Rely on password/ssh keys.
+##        #
+##        # If not, then we are doing a slave mount and we need to
+##        # make sure we can find the sftp-server and ssh execuatable
+##        # files on the host.
+##        if opts.has_key?(:ssh_host) and opts[:ssh_host]
+##            # Check port information and find out auth info
+##            check_host_port(machine, opts)
+##            get_auth_info(machine, opts)
+##        else
+##            opts[:ssh_exe_path] = find_executable('ssh')
+##            opts[:sftp_server_exe_path] = find_executable('sftp-server')
+##        end
+##        # Do the mount
+##        machine.ui.info(I18n.t("vagrant.sshfs.actions.mounting"))
+##        machine.guest.capability(:sshfs_mount_folder, opts)
         end
       end
 
