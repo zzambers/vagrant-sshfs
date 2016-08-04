@@ -210,6 +210,14 @@ module VagrantPlugins
             f2.rewind # Seek to beginning of the file
             error_class = VagrantPlugins::SyncedFolderSSHFS::Errors::SSHFSSlaveMountFailed
             raise error_class, sftp_stderr: f1.read, ssh_stderr: f2.read
+          else
+            machine.ui.info("Closing File Handles!")
+            f1.close # close file handle in main process
+            f2.close # close file handle in main process
+            r1.close
+            w1.close
+            r2.close
+            w2.close
           end
           machine.ui.info("Folder Successfully Mounted!")
         end
