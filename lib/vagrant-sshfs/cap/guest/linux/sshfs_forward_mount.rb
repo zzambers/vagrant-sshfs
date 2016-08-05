@@ -105,6 +105,43 @@ module VagrantPlugins
 
         protected
 
+          def self.dusty(fileno)
+
+              # Automatically handle stdin, stdout and stderr as either IO objects
+              # or file descriptors. This won't work for StringIO, however. It also
+              # will not work on JRuby because of the way it handles internal file
+              # descriptors.
+              #
+                    #handle = get_osfhandle(fileno)
+                    handle = Process.send(:get_osfhandle, fileno)
+                  #if handle == INVALID_HANDLE_VALUE
+                  if handle == Process.INVALID_HANDLE_VALUE
+                    ptr = FFI::MemoryPointer.new(:int)
+
+                   #if windows_version >= 6 && get_errno(ptr) == 0
+                    if Process.windows_version >= 6 && Process.get_errno(ptr) == 0
+                      errno = ptr.read_int
+                    else
+                      errno = FFI.errno
+                    end
+
+                    raise SystemCallError.new("get_osfhandle", errno)
+                  end
+
+                  # Make private
+                  #
+                  # Most implementations of Ruby on Windows create inheritable
+                  # handles by default, but some do not. RF bug #26988.
+                  #bool = SetHandleInformation(
+                  bool = Process.send(:SetHandleInformation,
+                    handle,
+                    #HANDLE_FLAG_INHERIT, 0
+                    Process.HANDLE_FLAG_INHERIT, 0
+                  )
+
+                  raise SystemCallError.new("SetHandleInformation", FFI.errno) unless bool
+          end
+
         # Perform a mount by running an sftp-server on the vagrant host 
         # and piping stdin/stdout to sshfs running inside the guest
         def self.sshfs_slave_mount(machine, opts, hostpath, expanded_guest_path)
@@ -156,6 +193,24 @@ module VagrantPlugins
           f2path = machine.data_dir.join('vagrant_sshfs_ssh_stderr.txt')
           f1 = File.new(f1path, 'w+')
           f2 = File.new(f2path, 'w+')
+
+##########ObjectSpace.each_object(IO) do |f|
+##########  path = nil
+##########  if f.respond_to?(:path)
+##########    path = f.path
+##########  end
+##########  puts "%s: %d" % [path, f.fileno] unless f.closed?
+##########  Process.dusty(f.fileno) unless f.closed?
+##########end
+#
+          # Process.dusty(1)
+          # Process.dusty(2)
+          #Process.send(:dusty, 1)
+          #Process.send(:dusty, 2)
+          self.dusty(1)
+          self.dusty(2)
+          #Process.send(:dusty, 2)
+
 
           # The way this works is by hooking up the stdin+stdout of the
           # sftp-server process to the stdin+stdout of the sshfs process
@@ -210,14 +265,6 @@ module VagrantPlugins
             f2.rewind # Seek to beginning of the file
             error_class = VagrantPlugins::SyncedFolderSSHFS::Errors::SSHFSSlaveMountFailed
             raise error_class, sftp_stderr: f1.read, ssh_stderr: f2.read
-          else
-            machine.ui.info("Closing File Handles!")
-            f1.close # close file handle in main process
-            f2.close # close file handle in main process
-            r1.close
-            w1.close
-            r2.close
-            w2.close
           end
           machine.ui.info("Folder Successfully Mounted!")
         end
