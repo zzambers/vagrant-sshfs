@@ -124,7 +124,7 @@ module VagrantPlugins
           end
         end
 
-        def self.windows_uninherit_handles(fileno)
+        def self.windows_uninherit_handle(fileno)
           # Right now we'll be doing this using private methods from the win32-process
           # module by calling  For each open IO object. Much of this code was copied from 
           # that module. We access the private methods by using the object.send(:method, args)
