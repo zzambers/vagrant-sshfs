@@ -105,6 +105,51 @@ module VagrantPlugins
 
         protected
 
+        def self.windows_uninherit_handles
+          # For win32-process Process.create, if we pass any file handles to the 
+          # underlying process for stdin/stdout/stderr then all file handles are 
+          # inherited by default. We'll explicitly go through and set all Handles
+          # to not be inheritable by default. See following links for more info
+          # 
+          # https://github.com/djberg96/win32-process/blob/6b380f450aebb69d44bb7accd958ecb6b9e1d246/lib/win32/process.rb#L445-L447
+          # bInheritHandles from https://msdn.microsoft.com/en-us/library/windows/desktop/ms682425(v=vs.85).aspx
+          # 
+          # For each open IO object 
+          ObjectSpace.each_object(IO) do |io|
+            if !io.closed?
+              fileno = io.fileno 
+              @@logger.debug("Setting file handle #{fileno} to not be inherited")
+              self.windows_uninherit_handle(fileno)
+          end
+        end
+
+        def self.windows_uninherit_handles(fileno)
+          # Right now we'll be doing this using private methods from the win32-process
+          # module by calling  For each open IO object. Much of this code was copied from 
+          # that module. We access the private methods by using the object.send(:method, args)
+          # technique.
+
+          # Get the windows IO handle and make sure we were successful getting it
+          handle = Process.send(:get_osfhandle, fileno)
+          if handle == Process::Constants::INVALID_HANDLE_VALUE
+            ptr = FFI::MemoryPointer.new(:int)
+            if Process.send(:windows_version) >= 6 && Process.get_errno(ptr) == 0
+              errno = ptr.read_int
+            else
+              errno = FFI.errno
+            end
+            raise SystemCallError.new("get_osfhandle", errno)
+          end
+
+          # Now clare the HANDLE_FLAG_INHERIT from the HANDLE so that the handle
+          # won't get shared by default. See: 
+          # https://msdn.microsoft.com/en-us/library/windows/desktop/ms724935(v=vs.85).aspx
+          # 
+		  bool = Process.send(:SetHandleInformation, 
+			handle, Process::Constants::HANDLE_FLAG_INHERIT, 0)
+		  raise SystemCallError.new("SetHandleInformation", FFI.errno) unless bool
+        end
+
         # Perform a mount by running an sftp-server on the vagrant host 
         # and piping stdin/stdout to sshfs running inside the guest
         def self.sshfs_slave_mount(machine, opts, hostpath, expanded_guest_path)
@@ -157,6 +202,24 @@ module VagrantPlugins
           f1 = File.new(f1path, 'w+')
           f2 = File.new(f2path, 'w+')
 
+##########ObjectSpace.each_object(IO) do |f|
+##########  path = nil
+##########  if f.respond_to?(:path)
+##########    path = f.path
+##########  end
+##########  puts "%s: %d" % [path, f.fileno] unless f.closed?
+##########  Process.dusty(f.fileno) unless f.closed?
+##########end
+#
+          # Process.dusty(1)
+          # Process.dusty(2)
+          #Process.send(:dusty, 1)
+          #Process.send(:dusty, 2)
+     #### self.dusty(1)
+     #### self.dusty(2)
+     #### #Process.send(:dusty, 2)
+
+
           # The way this works is by hooking up the stdin+stdout of the
           # sftp-server process to the stdin+stdout of the sshfs process
           # running inside the guest in slave mode. An illustration is below:
@@ -175,6 +238,7 @@ module VagrantPlugins
           if Vagrant::Util::Platform.windows?
             # Need to handle Windows differently. Kernel.spawn fails to work, if the shell creating the process is closed.
             # See https://github.com/dustymabe/vagrant-sshfs/issues/31
+            self.windows_uninherit_handles
             Process.create(:command_line => sftp_server_cmd,
                            :creation_flags => Process::DETACHED_PROCESS,
                            :process_inherit => false,
