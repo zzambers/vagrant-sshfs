@@ -119,7 +119,7 @@ module VagrantPlugins
                     ptr = FFI::MemoryPointer.new(:int)
 
                    #if windows_version >= 6 && get_errno(ptr) == 0
-                    if Process.windows_version >= 6 && Process.get_errno(ptr) == 0
+                    if Process.send(:windows_version) >= 6 && Process.get_errno(ptr) == 0
                       errno = ptr.read_int
                     else
                       errno = FFI.errno
