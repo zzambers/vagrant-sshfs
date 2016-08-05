@@ -120,6 +120,7 @@ module VagrantPlugins
               fileno = io.fileno 
               @@logger.debug("Setting file handle #{fileno} to not be inherited")
               self.windows_uninherit_handle(fileno)
+            end
           end
         end
 
