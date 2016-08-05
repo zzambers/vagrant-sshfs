@@ -115,7 +115,7 @@ module VagrantPlugins
                     #handle = get_osfhandle(fileno)
                     handle = Process.send(:get_osfhandle, fileno)
                   #if handle == INVALID_HANDLE_VALUE
-                  if handle == Process.INVALID_HANDLE_VALUE
+                  if handle == Process::Constants::INVALID_HANDLE_VALUE
                     ptr = FFI::MemoryPointer.new(:int)
 
                    #if windows_version >= 6 && get_errno(ptr) == 0
@@ -136,7 +136,7 @@ module VagrantPlugins
                   bool = Process.send(:SetHandleInformation,
                     handle,
                     #HANDLE_FLAG_INHERIT, 0
-                    Process.HANDLE_FLAG_INHERIT, 0
+                    Process::Constants::HANDLE_FLAG_INHERIT, 0
                   )
 
                   raise SystemCallError.new("SetHandleInformation", FFI.errno) unless bool
