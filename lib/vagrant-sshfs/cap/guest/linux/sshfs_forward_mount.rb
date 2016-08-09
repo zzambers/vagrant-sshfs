@@ -119,37 +119,9 @@ module VagrantPlugins
             if !io.closed?
               fileno = io.fileno 
               @@logger.debug("Setting file handle #{fileno} to not be inherited")
-              self.windows_uninherit_handle(fileno)
+              Process.set_io_handle_inherit_flag(fileno, false) # false = don't inherit
             end
           end
-        end
-
-        def self.windows_uninherit_handle(fileno)
-          # Right now we'll be doing this using private methods from the win32-process
-          # module by calling  For each open IO object. Much of this code was copied from 
-          # that module. We access the private methods by using the object.send(:method, args)
-          # technique. In the future we want to get a patch upstream so we don't need to
-          # access privat methods.
-
-          # Get the windows IO handle and make sure we were successful getting it
-          handle = Process.send(:get_osfhandle, fileno)
-          if handle == Process::Constants::INVALID_HANDLE_VALUE
-            ptr = FFI::MemoryPointer.new(:int)
-            if Process.send(:windows_version) >= 6 && Process.get_errno(ptr) == 0
-              errno = ptr.read_int
-            else
-              errno = FFI.errno
-            end
-            raise SystemCallError.new("get_osfhandle", errno)
-          end
-
-          # Now clear the HANDLE_FLAG_INHERIT from the HANDLE so that the handle
-          # won't get shared by default. See: 
-          # https://msdn.microsoft.com/en-us/library/windows/desktop/ms724935(v=vs.85).aspx
-          # 
-          bool = Process.send(:SetHandleInformation,
-          handle, Process::Constants::HANDLE_FLAG_INHERIT, 0)
-          raise SystemCallError.new("SetHandleInformation", FFI.errno) unless bool
         end
 
         # Perform a mount by running an sftp-server on the vagrant host 
