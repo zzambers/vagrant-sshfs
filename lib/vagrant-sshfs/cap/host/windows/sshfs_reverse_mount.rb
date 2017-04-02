@@ -3,7 +3,7 @@ require "vagrant/util/retryable"
 require "tempfile"
 
 module VagrantPlugins
-  module HostDarwin
+  module HostWindows
     module Cap
       class MountSSHFS
         extend Vagrant::Util::Retryable
