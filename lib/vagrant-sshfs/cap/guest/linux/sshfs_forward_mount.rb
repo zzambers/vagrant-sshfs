@@ -81,6 +81,7 @@ module VagrantPlugins
           # Add in some ssh options that are common to both mount methods
           opts[:ssh_opts] = ' -o StrictHostKeyChecking=no '# prevent yes/no question
           opts[:ssh_opts]+= ' -o ServerAliveInterval=30 '  # send keepalives
+          opts[:ssh_opts]+= ' -o AddKeysToAgent=no' # don't add keys to Agent #88
 
           # Do a normal mount only if the user provided host information
           if opts.has_key?(:ssh_host) and opts[:ssh_host]
