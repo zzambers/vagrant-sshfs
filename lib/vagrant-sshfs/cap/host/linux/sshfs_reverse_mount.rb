@@ -77,10 +77,14 @@ module VagrantPlugins
              machine.ssh_info[:private_key_path][0]
              # Add IdentityFile since there is one
              # Note the backslash escapes for IdentityFile - handles spaces in key path
-            ssh_opts+= ' -o "IdentityFile=\"' + machine.ssh_info[:private_key_path][0] + '\""'
+             ssh_opts+= ' -o "IdentityFile=\"' + machine.ssh_info[:private_key_path][0] + '\""'
           end
 
           ssh_opts_append = opts[:ssh_opts_append].to_s # provided by user
+
+          # Workaround fact that SSHFS ssh_command will error if multiple spaces
+          # or any trailing whitespace. https://github.com/libfuse/sshfs/issues/114
+          ssh_opts_combined = "#{ssh_opts} #{ssh_opts_append}".squeeze(" ").strip
 
           # SSHFS executable options
           sshfs_opts = opts[:sshfs_opts]
@@ -91,7 +95,7 @@ module VagrantPlugins
 
 
           # The sshfs command to mount the guest directory on the host
-          sshfs_cmd = "#{sshfs_path} #{ssh_opts} #{ssh_opts_append} "
+          sshfs_cmd = "#{sshfs_path} -o ssh_command=" + '"ssh ' + ssh_opts_combined + '" '
           sshfs_cmd+= "#{sshfs_opts} #{sshfs_opts_append} "
           sshfs_cmd+= "#{username}@#{host}:#{expanded_guest_path} #{hostpath}"
 
