@@ -21,6 +21,10 @@ module VagrantPlugins
           "cat /proc/mounts"
         end
 
+        def self.is_cygwin(machine, opts)
+          return machine.communicate.test("uname | grep -q -i cygwin")
+        end
+
         def self.sshfs_forward_is_folder_mounted(machine, opts)
           mounted = false
           guest_path = opts[:guestpath]
@@ -29,6 +33,10 @@ module VagrantPlugins
           # can safely say it is not mounted
           exists = machine.communicate.test("test -e #{guest_path}", sudo: true)
           return false unless exists
+          # If path exists in cygwin it means it's mounted
+          if self.is_cygwin(machine, opts)
+             return true
+          end
 
           # find the absolute path so that we can properly check if it is mounted
           # https://github.com/dustymabe/vagrant-sshfs/issues/44
@@ -66,9 +74,11 @@ module VagrantPlugins
             :shell_expand_guest_path, opts[:guestpath])
 
           # Create the mountpoint inside the guest
-          machine.communicate.tap do |comm|
-            comm.sudo("mkdir -p #{expanded_guest_path}")
-            comm.sudo("chmod 777 #{expanded_guest_path}")
+          unless self.is_cygwin(machine, opts)
+            machine.communicate.tap do |comm|
+              comm.sudo("mkdir -p #{expanded_guest_path}")
+              comm.sudo("chmod 777 #{expanded_guest_path}")
+            end
           end
 
           # Mount path information: if arbitrary host mounting then
@@ -210,7 +220,12 @@ module VagrantPlugins
 
           # The remote sshfs command that will run (in slave mode)
           sshfs_opts+= ' -o slave '
-          sshfs_cmd = "sudo -E sshfs :#{hostpath} #{expanded_guest_path}"
+          if self.is_cygwin(machine, opts)
+            # cygwin does not support -E option
+            sshfs_cmd = "sudo sshfs :#{hostpath} #{expanded_guest_path}"
+          else
+            sshfs_cmd = "sudo -E sshfs :#{hostpath} #{expanded_guest_path}"
+          end
           sshfs_cmd+= sshfs_opts + ' ' + sshfs_opts_append + ' '
 
           # The ssh command to connect to guest and then launch sshfs
